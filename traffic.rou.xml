@@ -1,0 +1,18 @@
+<routes>
+    <vTypeDistribution id="mixed_traffic">
+        <vType id="car" probability="0.7" guiShape="passenger" color="1,0,0"/>
+        <vType id="bus" probability="0.2" guiShape="bus" color="0,0,1"/>
+        <vType id="truck" probability="0.1" guiShape="truck" color="0,1,0"/>
+    </vTypeDistribution>
+
+    <route id="WE" edges="E3 E0.54"/>
+    <route id="NS" edges="E1 E1.39"/>
+    <route id="EW" edges="-E0 -E00"/>
+    <route id="SN" edges="-E1 -E10"/>
+
+    <flow id="f_NS" route="NS" type="mixed_traffic" begin="0" end="3600" probability="0.4"/>
+    <flow id="f_SN" route="SN" type="mixed_traffic" begin="0" end="3600" probability="0.4"/>
+
+    <flow id="f_WE" route="WE" type="mixed_traffic" begin="0" end="3600" probability="0.01"/>
+    <flow id="f_EW" route="EW" type="mixed_traffic" begin="0" end="3600" probability="0.01"/>
+</routes>

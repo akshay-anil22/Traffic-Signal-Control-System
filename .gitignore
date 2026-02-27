@@ -1,0 +1,6 @@
+# Ignore AI Brains
+*.zip
+
+# Ignore Python Cache
+__pycache__/
+*.pyc
