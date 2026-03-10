@@ -12,7 +12,7 @@ class TrafficEnv(gym.Env):
         # 1. DEFINE THE "EYES" (Observation Space)
         # The AI will "see" the number of cars in 4 specific lanes.
         # We define a box of 4 numbers, ranging from 0 to 100 cars.
-        self.observation_space = spaces.Box(low=0, high=100, shape=(8,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=10000, shape=(9,), dtype=np.float32)
 
         # 2. DEFINE THE "HANDS" (Action Space)
         # The AI has 2 buttons:
@@ -41,47 +41,58 @@ class TrafficEnv(gym.Env):
         traci.start(self.sumo_cmd)
         
         # Return the first "sight" of the world (0 cars initially)
-        return np.zeros(8, dtype=np.float32), {}
+        return np.zeros(9, dtype=np.float32), {}
 
     def step(self, action):
         """The AI takes an action, and we tell it what happened."""
         
-        # 1. APPLY ACTION
+        # --- 1. APPLY ACTION & PREVENT QUICK SWITCHING ---
         if action == 1:
-            # If AI says "Switch", we cycle to the next phase
             current_phase = traci.trafficlight.getPhase(self.tls_id)
-            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 4)
+            
+            # Step A: Switch to the Yellow phase (which is always current_phase + 1)
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 8)
+            
+            # Step B: Force the simulation to run for 4 seconds on Yellow. 
+            # The AI CANNOT interrupt this. It prevents instant green-to-green switching.
+            for _ in range(4):
+                traci.simulationStep()
+                
+            # Step C: Now switch to the next actual Green phase
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 2) % 8)
         
-        # 2. FAST FORWARD
-        # We don't make decisions every millisecond. We act, then wait 5 seconds.
+        # --- 2. FAST FORWARD THE GREEN LIGHT ---
+        # The AI locks in its decision for 15 seconds. 
+        # Increase this number to 20 or 30 if you want the lights to stay green even longer!
         for _ in range(15):
             traci.simulationStep()
 
-        # 3. GET NEW STATE (What does the AI see now?)
-        # We ask SUMO: "How many cars are halted in these lanes?"
+        # --- 3. GET NEW STATE (The "Eyes" Upgrade) ---
         observations = []
         for lane in self.lanes:
-            # specifically counting cars moving slower than 0.1 m/s (stopped)
-            vehicle_count = traci.lane.getLastStepHaltingNumber(lane)
-            observations.append(vehicle_count)
+            # UPGRADE: Measure total waiting time in seconds instead of just counting cars
+            wait_time = traci.lane.getWaitingTime(lane)
+            observations.append(wait_time)
+        
+        # UPGRADE: Tell the AI what phase the light is currently on
+        current_phase = traci.trafficlight.getPhase(self.tls_id)
+        observations.append(current_phase)
         
         state = np.array(observations, dtype=np.float32)
 
-        # 4. CALCULATE REWARD (The Grade)
-        # Goal: Reduce waiting time.
-        # If queue is long, Reward is Negative (Punishment).
-        # If queue is short, Reward is close to Zero (Good).
-        total_stopped_cars = sum(observations)
-        reward = -total_stopped_cars 
+        # --- 4. CALCULATE REWARD (The "Grades" Upgrade) ---
+        # We sum up the waiting time of all 8 lanes (we use [:-1] to ignore the phase number at the end)
+        total_wait_time = sum(observations[:-1])
+        
+        # Big punishment for making people wait
+        reward = -total_wait_time 
 
+        # UPGRADE: Slap the AI with a penalty if it decides to switch the light
         if action == 1:
-            reward -= 10  # Small penalty for switching to encourage thoughtful decisions
+            reward -= 50  
 
-        # 5. CHECK IF DONE
-        # Stop after 1000 steps so we can restart and practice again.
+        # --- 5. CHECK IF DONE ---
         terminated = traci.simulation.getTime() > 3600
         truncated = False
         
-        #print(f"AI Sees: {state} | Reward: {reward}")
-
         return state, reward, terminated, truncated, {}
