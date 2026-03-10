@@ -50,7 +50,7 @@ class TrafficEnv(gym.Env):
         if action == 1:
             # If AI says "Switch", we cycle to the next phase
             current_phase = traci.trafficlight.getPhase(self.tls_id)
-            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 4)
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 8)
         
         # 2. FAST FORWARD
         # We don't make decisions every millisecond. We act, then wait 5 seconds.

@@ -121,12 +121,12 @@
     </edge>
 
     <tlLogic id="J7" type="static" programID="0" offset="0">
-        <phase duration="33" state="GGgrrrrGGgrrr"/>
-        <phase duration="3"  state="yygrrrryygrrr"/>
+        <phase duration="33" state="GGrrrrrGGrrrr"/>
+        <phase duration="3"  state="yyrrrrryyrrrr"/>
         <phase duration="6"  state="rrGrrrrrrGrrr"/>
         <phase duration="3"  state="rryrrrrrryrrr"/>
-        <phase duration="33" state="rrrGGGgrrrGGg"/>
-        <phase duration="3"  state="rrryyygrrryyg"/>
+        <phase duration="33" state="rrrrGGrrrrGGr"/>
+        <phase duration="3"  state="rrrryyrrrryyr"/>
         <phase duration="6"  state="rrrrrrGrrrrrG"/>
         <phase duration="3"  state="rrrrrryrrrrry"/>
     </tlLogic>
