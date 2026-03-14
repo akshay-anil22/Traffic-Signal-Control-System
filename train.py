@@ -13,7 +13,7 @@ model = PPO("MlpPolicy", env, verbose=1)
 # 3. Start Training
 print("Training started... (SUMO will open and close many times)")
 # 20,000 steps is a quick "Test Run". For real genius AI, use 1,000,000.
-model.learn(total_timesteps=1000000)
+model.learn(total_timesteps=100000)
 
 # 4. Save the Brain
 model.save("traffic_ai_brain")
