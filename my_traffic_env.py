@@ -10,14 +10,9 @@ class TrafficEnv(gym.Env):
         super(TrafficEnv, self).__init__()
 
         # 1. DEFINE THE "EYES" (Observation Space)
-        # The AI will "see" the number of cars in 4 specific lanes.
-        # We define a box of 4 numbers, ranging from 0 to 100 cars.
         self.observation_space = spaces.Box(low=0, high=10000, shape=(9,), dtype=np.float32)
 
         # 2. DEFINE THE "HANDS" (Action Space)
-        # The AI has 2 buttons:
-        # 0 = Keep the current light phase
-        # 1 = Switch to the next phase
         self.action_space = spaces.Discrete(2)
 
         # 3. YOUR SPECIFIC CONFIGURATION
@@ -25,9 +20,6 @@ class TrafficEnv(gym.Env):
         self.tls_id = "J7"  # <--- CONFIRM THIS ID IN NETEDIT!
         
         # *** CRITICAL: PUT YOUR INCOMING LANE IDs HERE ***
-        # These are the lanes the AI watches to decide if it should switch.
-        # Usually: [North_Incoming, East_Incoming, South_Incoming, West_Incoming]
-        # Example: "E1_0" means Edge E1, Lane 0.
         self.lanes = ["E1_0", "-E0_0", "-E1_0", "E3_0","E1_1", "-E0_1", "-E1_1", "E3_1"] 
 
     def reset(self, seed=None, options=None):
@@ -37,61 +29,101 @@ class TrafficEnv(gym.Env):
         except:
             pass
         
-        # Start SUMO
         traci.start(self.sumo_cmd)
-        
-        # Return the first "sight" of the world (0 cars initially)
         return np.zeros(9, dtype=np.float32), {}
+
+    def check_and_handle_emergency(self, tls_id, lane_to_phase_map):
+        """Globally searches for an ambulance and manages the intersection phases."""
+        
+        all_vehicles = traci.vehicle.getIDList()
+        
+        for veh_id in all_vehicles:
+            if traci.vehicle.getVehicleClass(veh_id) == "emergency":
+                current_lane = traci.vehicle.getLaneID(veh_id)
+                
+                # 1. THE APPROACH (Incoming Lanes)
+                if current_lane in lane_to_phase_map:
+                    green_phase_index = lane_to_phase_map[current_lane]
+                    traci.trafficlight.setPhase(tls_id, green_phase_index)
+                    return True # Keep the override active!
+                    
+                # 2. THE CROSSING (Internal Junction Lanes start with ':')
+                elif current_lane.startswith(":"):
+                    # The ambulance is physically inside the intersection. 
+                    # We don't need to change the phase, but we MUST keep the override active!
+                    return True 
+                
+                # 3. THE EXIT (Outgoing Lanes)
+                else:
+                    # The ambulance has cleared the intersection and is driving away.
+                    # We ignore it so the AI can take control back.
+                    pass 
+                    
+        return False # No ambulances are approaching or crossing
+
+
+    def run_steps_with_emergency_monitor(self, steps, lane_to_phase_map):
+        """Fast-forwards the simulation but checks for ambulances EVERY SINGLE SECOND."""
+        for _ in range(steps):
+            
+            # Note: We removed 'self.lanes' from the parameters here since it searches globally now
+            is_emergency = self.check_and_handle_emergency(self.tls_id, lane_to_phase_map)
+            
+            if is_emergency:
+                # Keep stepping until the ambulance has left our incoming lanes
+                while self.check_and_handle_emergency(self.tls_id, lane_to_phase_map):
+                    traci.simulationStep()
+                
+                print("✅ Ambulance cleared the intersection. Returning control to AI.", flush=True)
+                return True # We were interrupted
+
+            traci.simulationStep()
+            
+        return False
 
     def step(self, action):
         """The AI takes an action, and we tell it what happened."""
         
-        # --- 1. APPLY ACTION & PREVENT QUICK SWITCHING ---
+        # *** YOUR SPECIFIC MAP GOES HERE ***
+        lane_to_phase_map = {
+            "E1_0": 0, "-E0_0": 4, "-E1_0": 0, "E3_0": 4,
+            "E1_1": 2, "-E0_1": 6, "-E1_1": 2, "E3_1": 6
+        }
+
+        # --- 1. NORMAL AI LOGIC (Guarded by the emergency monitor) ---
         if action == 1:
             current_phase = traci.trafficlight.getPhase(self.tls_id)
-            
-            # Step A: Switch to the Yellow phase (which is always current_phase + 1)
             traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 8)
             
-            # Step B: Force the simulation to run for 4 seconds on Yellow. 
-            # The AI CANNOT interrupt this. It prevents instant green-to-green switching.
-            for _ in range(4):
-                traci.simulationStep()
-                
-            # Step C: Now switch to the next actual Green phase
-            traci.trafficlight.setPhase(self.tls_id, (current_phase + 2) % 8)
+            # Yellow light (4 seconds) - Watched by the monitor
+            interrupted = self.run_steps_with_emergency_monitor(4, lane_to_phase_map)
+            
+            if not interrupted:
+                # Only change to the AI's chosen green phase if an ambulance DIDN'T interrupt
+                traci.trafficlight.setPhase(self.tls_id, (current_phase + 2) % 8)
         
-        # --- 2. FAST FORWARD THE GREEN LIGHT ---
-        # The AI locks in its decision for 15 seconds. 
-        # Increase this number to 20 or 30 if you want the lights to stay green even longer!
-        for _ in range(15):
-            traci.simulationStep()
+        # Green light (15 seconds) - Watched by the monitor
+        was_emergency = self.run_steps_with_emergency_monitor(15, lane_to_phase_map)
 
-        # --- 3. GET NEW STATE (The "Eyes" Upgrade) ---
+        # --- 2. GET NEW STATE ---
         observations = []
         for lane in self.lanes:
-            # UPGRADE: Measure total waiting time in seconds instead of just counting cars
             wait_time = traci.lane.getWaitingTime(lane)
             observations.append(wait_time)
         
-        # UPGRADE: Tell the AI what phase the light is currently on
         current_phase = traci.trafficlight.getPhase(self.tls_id)
         observations.append(current_phase)
-        
         state = np.array(observations, dtype=np.float32)
 
-        # --- 4. CALCULATE REWARD (The "Grades" Upgrade) ---
-        # We sum up the waiting time of all 8 lanes (we use [:-1] to ignore the phase number at the end)
+        # --- 3. CALCULATE REWARD ---
         total_wait_time = sum(observations[:-1])
-        
-        # Big punishment for making people wait
         reward = -total_wait_time 
 
-        # UPGRADE: Slap the AI with a penalty if it decides to switch the light
-        if action == 1:
+        # Only penalize the AI for switching if it was actually its choice (not forced by ambulance)
+        if action == 1 and not was_emergency:
             reward -= 50  
 
-        # --- 5. CHECK IF DONE ---
+        # --- 4. CHECK IF DONE ---
         terminated = traci.simulation.getTime() > 3600
         truncated = False
         
