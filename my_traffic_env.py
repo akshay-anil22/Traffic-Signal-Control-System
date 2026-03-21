@@ -17,7 +17,7 @@ class TrafficEnv(gym.Env):
 
         # 3. YOUR SPECIFIC CONFIGURATION
         self.sumo_cmd = ["sumo", "-c", "mysim.sumocfg", "--start", "--quit-on-end", "--no-step-log", "true", "--waiting-time-memory", "1000"]
-        self.tls_id = "J7"  # <--- CONFIRM THIS ID IN NETEDIT!
+        self.tls_id = "J7"  
         
         # *** CRITICAL: PUT YOUR INCOMING LANE IDs HERE ***
         self.lanes = ["E1_0", "-E0_0", "-E1_0", "E3_0","E1_1", "-E0_1", "-E1_1", "E3_1"] 

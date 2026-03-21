@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-03-06T20:45:59.934804+05:30 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-03-14T16:27:13.690196+05:30 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
-        <sumo-net-file value="C:\Users\29ami\OneDrive\Desktop\mini-project\traffic_ai\network.net.xml"/>
+        <sumo-net-file value="C:\_Gopi\VS Code\Traffic Control System\Traffic-Signal-Control-System\network.net.xml"/>
     </input>
 
     <output>
-        <output-file value="C:\Users\29ami\OneDrive\Desktop\mini-project\traffic_ai\network.net.xml"/>
+        <output-file value="C:\_Gopi\VS Code\Traffic Control System\Traffic-Signal-Control-System\network.net.xml"/>
     </output>
 
     <processing>
@@ -121,12 +121,12 @@
     </edge>
 
     <tlLogic id="J7" type="static" programID="0" offset="0">
-        <phase duration="33" state="GGrrrrrGGrrrr"/>
-        <phase duration="3"  state="yyrrrrryyrrrr"/>
+        <phase duration="33" state="GGgrrrrGGgrrr"/>
+        <phase duration="3"  state="yygrrrryygrrr"/>
         <phase duration="6"  state="rrGrrrrrrGrrr"/>
         <phase duration="3"  state="rryrrrrrryrrr"/>
-        <phase duration="33" state="rrrrGGrrrrGGr"/>
-        <phase duration="3"  state="rrrryyrrrryyr"/>
+        <phase duration="33" state="rrrGGGgrrrGGg"/>
+        <phase duration="3"  state="rrryyygrrryyg"/>
         <phase duration="6"  state="rrrrrrGrrrrrG"/>
         <phase duration="3"  state="rrrrrryrrrrry"/>
     </tlLogic>
