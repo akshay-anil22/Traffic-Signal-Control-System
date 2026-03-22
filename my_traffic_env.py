@@ -22,12 +22,17 @@ class TrafficEnv(gym.Env):
         # *** CRITICAL: PUT YOUR INCOMING LANE IDs HERE ***
         self.lanes = ["E1_0", "-E0_0", "-E1_0", "E3_0","E1_1", "-E0_1", "-E1_1", "E3_1"] 
 
+        # Tracker for total CO2 emissions (in milligrams)
+        self.total_co2 = 0.0
+
     def reset(self, seed=None, options=None):
         """Called at the start of every training episode."""
         try:
             traci.close()
         except:
             pass
+
+        self.total_co2 = 0.0
         
         traci.start(self.sumo_cmd)
         return np.zeros(9, dtype=np.float32), {}
@@ -63,68 +68,110 @@ class TrafficEnv(gym.Env):
 
 
     def run_steps_with_emergency_monitor(self, steps, lane_to_phase_map):
-        """Fast-forwards the simulation but checks for ambulances EVERY SINGLE SECOND."""
-        for _ in range(steps):
-            
+        """Fast-forwards the simulation and tracks CO2 emissions and checks for ambulances EVERY SINGLE SECOND."""
+        was_emergency = False
+
+        for _ in range(steps):    
             # Note: We removed 'self.lanes' from the parameters here since it searches globally now
             is_emergency = self.check_and_handle_emergency(self.tls_id, lane_to_phase_map)
             
             if is_emergency:
+                was_emergency = True
                 # Keep stepping until the ambulance has left our incoming lanes
                 while self.check_and_handle_emergency(self.tls_id, lane_to_phase_map):
                     traci.simulationStep()
+                    # Track CO2 even while the ambulance is crossing
+                    for lane in self.lanes:
+                        self.total_co2 += traci.lane.getCO2Emission(lane)
                 
                 print("✅ Ambulance cleared the intersection. Returning control to AI.", flush=True)
                 return True # We were interrupted
 
             traci.simulationStep()
+
+            # --- CO2 CALCULATION ---
+            # SUMO outputs CO2 in milligrams (mg) per second.
+            for lane in self.lanes:
+                self.total_co2 += traci.lane.getCO2Emission(lane)
             
-        return False
+        return was_emergency
 
     def step(self, action):
         """The AI takes an action, and we tell it what happened."""
         
-        # *** YOUR SPECIFIC MAP GOES HERE ***
+        # --- FIXED PHASE MAP (Only uses 0 to 5) ---
+        # North/South lanes trigger Phase 0. East/West lanes trigger Phase 3.
         lane_to_phase_map = {
-            "E1_0": 0, "-E0_0": 4, "-E1_0": 0, "E3_0": 4,
-            "E1_1": 2, "-E0_1": 6, "-E1_1": 2, "E3_1": 6
+            "E1_0": 0, "E1_1": 0, "-E1_0": 0, "-E1_1": 0, 
+            "-E0_0": 3, "-E0_1": 3, "E3_0": 3, "E3_1": 3
         }
+
+        current_phase = traci.trafficlight.getPhase(self.tls_id)
+        reward = 0
+        was_emergency = False
 
         # --- 1. NORMAL AI LOGIC (Guarded by the emergency monitor) ---
         if action == 1:
+            # Step A: Pedestrian Clearance (5 seconds)
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 6)
+            self.run_steps_with_emergency_monitor(5, lane_to_phase_map)
+            
+            # Step B: Yellow light (3 seconds)
             current_phase = traci.trafficlight.getPhase(self.tls_id)
-            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 8)
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 6)
+            self.run_steps_with_emergency_monitor(3, lane_to_phase_map)
             
-            # Yellow light (4 seconds) - Watched by the monitor
-            interrupted = self.run_steps_with_emergency_monitor(4, lane_to_phase_map)
+            # Step C: New Green light (10 seconds)
+            current_phase = traci.trafficlight.getPhase(self.tls_id)
+            traci.trafficlight.setPhase(self.tls_id, (current_phase + 1) % 6)
+            was_emergency = self.run_steps_with_emergency_monitor(10, lane_to_phase_map)
             
-            if not interrupted:
-                # Only change to the AI's chosen green phase if an ambulance DIDN'T interrupt
-                traci.trafficlight.setPhase(self.tls_id, (current_phase + 2) % 8)
-        
-        # Green light (15 seconds) - Watched by the monitor
-        was_emergency = self.run_steps_with_emergency_monitor(15, lane_to_phase_map)
+        else:
+            # Action 0 (Keep): Just run for 5 seconds and check again
+            was_emergency = self.run_steps_with_emergency_monitor(5, lane_to_phase_map)
 
-        # --- 2. GET NEW STATE ---
+        # --- 2. GET NEW STATE (Fixed Snowball Effect) ---
         observations = []
         for lane in self.lanes:
-            wait_time = traci.lane.getWaitingTime(lane)
-            observations.append(wait_time)
+            # Snap-shot of stopped cars, not accumulated waiting time!
+            stopped_cars = traci.lane.getLastStepHaltingNumber(lane)
+            observations.append(stopped_cars)
         
         current_phase = traci.trafficlight.getPhase(self.tls_id)
         observations.append(current_phase)
         state = np.array(observations, dtype=np.float32)
 
         # --- 3. CALCULATE REWARD ---
-        total_wait_time = sum(observations[:-1])
-        reward = -total_wait_time 
+        total_stopped_cars = sum(observations[:-1])
+        reward -= total_stopped_cars 
 
-        # Only penalize the AI for switching if it was actually its choice (not forced by ambulance)
+        # --- EMERGENCY VEHICLE DETECTION ---
+        for lane in self.lanes:
+            vehicles = traci.lane.getLastStepVehicleIDs(lane)
+            for veh_id in vehicles:
+                if traci.vehicle.getTypeID(veh_id) == "emergency":
+                    reward -= 1000
+
+        # --- PEDESTRIAN DETECTION ---
+        # Check the edges connecting to the junction for waiting pedestrians
+        pedestrian_edges = ["E1", "-E0", "E3", "-E1"] 
+        for edge in pedestrian_edges:
+            waiting_peds = traci.edge.getLastStepPersonIDs(edge)
+            for ped in waiting_peds:
+                if traci.person.getSpeed(ped) < 0.1: # Only penalize if they are actually stopped/waiting
+                    reward -= 5 
+
+        # Only penalize the AI for switching if it was actually its choice 
         if action == 1 and not was_emergency:
             reward -= 50  
 
         # --- 4. CHECK IF DONE ---
         terminated = traci.simulation.getTime() > 3600
         truncated = False
+
+        # If the 1-hour episode is finished, print the final CO2 tally!
+        if terminated:
+            co2_in_kg = self.total_co2 / 1000000.0
+            print(f"🌍 1-Hour Simulation Complete! Total CO2 Emitted: {co2_in_kg:.2f} kg", flush=True)
         
         return state, reward, terminated, truncated, {}

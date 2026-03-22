@@ -22,15 +22,15 @@
     <route id="E_to_N" edges="E3 E1.39"/>
     <route id="W_to_S" edges="-E0 -E10"/>
 
-    <flow id="f_NS" route="NS" type="mixed_traffic" begin="0" end="1000" probability="0.3"/>
-    <flow id="f_SN" route="SN" type="mixed_traffic" begin="0" end="1000" probability="0.3"/>
-    <flow id="f_WE" route="WE" type="mixed_traffic" begin="0" end="1000" probability="0.2"/>
-    <flow id="f_EW" route="EW" type="mixed_traffic" begin="0" end="1000" probability="0.2"/>
+    <flow id="f_NS" route="NS" type="mixed_traffic" begin="0" end="1000" probability="0.05"/>
+    <flow id="f_SN" route="SN" type="mixed_traffic" begin="0" end="1000" probability="0.05"/>
+    <flow id="f_WE" route="WE" type="mixed_traffic" begin="0" end="1000" probability="0.04"/>
+    <flow id="f_EW" route="EW" type="mixed_traffic" begin="0" end="1000" probability="0.04"/>
 
-    <flow id="f_N_to_E" route="N_to_E" type="mixed_traffic" begin="0" end="1000" probability="0.1"/>
-    <flow id="f_N_to_W" route="N_to_W" type="mixed_traffic" begin="0" end="1000" probability="0.1"/>
-    <flow id="f_S_to_E" route="S_to_E" type="mixed_traffic" begin="0" end="1000" probability="0.1"/>
-    <flow id="f_S_to_W" route="S_to_W" type="mixed_traffic" begin="0" end="1000" probability="0.1"/>
+    <flow id="f_N_to_E" route="N_to_E" type="mixed_traffic" begin="0" end="1000" probability="0.02"/>
+    <flow id="f_N_to_W" route="N_to_W" type="mixed_traffic" begin="0" end="1000" probability="0.02"/>
+    <flow id="f_S_to_E" route="S_to_E" type="mixed_traffic" begin="0" end="1000" probability="0.02"/>
+    <flow id="f_S_to_W" route="S_to_W" type="mixed_traffic" begin="0" end="1000" probability="0.02"/>
 
     <flow id="f_emerg_NS" route="NS" type="ambulance" begin="0" end="1000" probability="0.001"/>
     <flow id="f_emerg_SN" route="SN" type="ambulance" begin="0" end="1000" probability="0.001"/>
@@ -41,5 +41,15 @@
     <flow id="f_emerg_E_to_S" route="E_to_S" type="ambulance" begin="0" end="1000" probability="0.001"/>
     <flow id="f_emerg_S_to_W" route="S_to_W" type="ambulance" begin="0" end="1000" probability="0.001"/>
     <flow id="f_emerg_W_to_N" route="W_to_N" type="ambulance" begin="0" end="1000" probability="0.001"/>
+
+    <vType id="pedestrian" vClass="pedestrian" color="255,192,203" guiShape="pedestrian" maxSpeed="1.5"/>
+
+    <personFlow id="ped_walk_SN" begin="0" end="1000" probability="0.01">
+        <walk from="-E1" to="-E10"/> 
+    </personFlow>
+
+    <personFlow id="ped_walk_EW" begin="0" end="1000" probability="0.01">
+        <walk from="-E00" to="-E0"/> 
+    </personFlow>
 
 </routes>
