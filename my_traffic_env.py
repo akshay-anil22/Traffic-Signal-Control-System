@@ -168,10 +168,17 @@ class TrafficEnv(gym.Env):
         # --- 4. CHECK IF DONE ---
         terminated = traci.simulation.getTime() > 3600
         truncated = False
-
-        # If the 1-hour episode is finished, print the final CO2 tally!
+        
+        # If the 1-hour episode is finished, print and SAVE the final CO2 tally!
         if terminated:
             co2_in_kg = self.total_co2 / 1000000.0
             print(f"🌍 1-Hour Simulation Complete! Total CO2 Emitted: {co2_in_kg:.2f} kg", flush=True)
+            
+            # --- NEW: Append the final score to our history file ---
+            file_exists = os.path.isfile("episode_summary.csv")
+            with open("episode_summary.csv", "a") as f:
+                if not file_exists:
+                    f.write("co2_kg\n") # Write the header if it's the first time
+                f.write(f"{co2_in_kg}\n") # Save the value
         
         return state, reward, terminated, truncated, {}
