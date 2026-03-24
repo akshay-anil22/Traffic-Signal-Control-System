@@ -3,3 +3,4 @@ venv/
 traffic_tensorboard/
 __pycache__/
 *.zip
+live_data.csv

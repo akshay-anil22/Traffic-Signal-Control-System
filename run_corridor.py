@@ -1,6 +1,15 @@
 import traci
 import numpy as np
 from stable_baselines3 import PPO
+import csv
+import os
+
+# ==========================================
+# 0. SETUP THE STREAMLIT BRIDGE
+# ==========================================
+# Create/Clear the live data file before the simulation starts
+with open("live_data.csv", "w", newline='') as f:
+    f.write("step,q_j1,q_j7,flow_ew,flow_ns,ambulance_active\n")
 
 def handle_emergency(tls_id):
     """
@@ -57,6 +66,9 @@ step = 0
 while step < 3600:
     traci.simulationStep()
     
+    # ------------------------------------------
+    # AI DECISION LOOP (Iterates through J1 and J7)
+    # ------------------------------------------
     for tls_id in tls_ids:
         # --- 1. EMERGENCY OVERRIDE CHECK ---
         # We check for ambulances EVERY single second, ignoring cooldowns.
@@ -99,6 +111,25 @@ while step < 3600:
             tls_cooldowns[tls_id] = 12 
         else:
             tls_cooldowns[tls_id] = 5 
+            
+    # ------------------------------------------
+    # THE STREAMLIT BRIDGE (Runs every 10 steps)
+    # ------------------------------------------
+    if step % 10 == 0:
+        # Count halted cars on the main incoming edges
+        q_j1 = traci.edge.getLastStepHaltingNumber("-E2") + traci.edge.getLastStepHaltingNumber("-E4")
+        q_j7 = traci.edge.getLastStepHaltingNumber("E1") + traci.edge.getLastStepHaltingNumber("-E1")
+        
+        # Count flowing cars (East/West vs North/South)
+        flow_ew = traci.edge.getLastStepVehicleNumber("E0") + traci.edge.getLastStepVehicleNumber("-E00")
+        flow_ns = traci.edge.getLastStepVehicleNumber("E1.39") + traci.edge.getLastStepVehicleNumber("-E10")
+        
+        # Check if an ambulance is actively in the network
+        amb_active = 1 if any(traci.vehicle.getVehicleClass(veh) == "emergency" for veh in traci.vehicle.getIDList()) else 0
+        
+        # Write to the CSV file so the website can read it
+        with open("live_data.csv", "a", newline='') as f:
+            f.write(f"{step},{q_j1},{q_j7},{flow_ew},{flow_ns},{amb_active}\n")
             
     step += 1
 
