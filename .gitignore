@@ -1,6 +1,5 @@
-# Ignore AI Brains
-*.zip
-
-# Ignore Python Cache
+env/
+venv/
+traffic_tensorboard/
 __pycache__/
-*.pyc
+*.zip
