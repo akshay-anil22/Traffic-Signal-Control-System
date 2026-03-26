@@ -3,9 +3,9 @@
     <vType id="pedestrian" vClass="pedestrian" color="255,192,203" guiShape="pedestrian" maxSpeed="1.5"/>
 
     <vTypeDistribution id="mixed_traffic">
-        <vType id="car" probability="0.7" guiShape="passenger" color="1,0,0"/>
-        <vType id="bus" probability="0.2" guiShape="bus" color="0,0,1"/>
-        <vType id="truck" probability="0.1" guiShape="truck" color="0,1,0"/>
+        <vType id="car" probability="0.7" vClass="passenger" guiShape="passenger" color="1,0,0"/>
+        <vType id="bus" probability="0.2" vClass="bus" guiShape="bus" color="0,0,1"/>
+        <vType id="truck" probability="0.1" vClass="truck" guiShape="truck" color="0,1,0"/>
     </vTypeDistribution>
 
     <route id="WE" edges="E3 E0.54 E0"/>
