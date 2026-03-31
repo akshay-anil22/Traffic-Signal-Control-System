@@ -16,7 +16,7 @@ class TrafficEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
 
         # 3. YOUR SPECIFIC CONFIGURATION
-        self.sumo_cmd = ["sumo", "-c", "mysim.sumocfg", "--start", "--quit-on-end", "--no-step-log", "true", "--waiting-time-memory", "1000"]
+        self.sumo_cmd = ["sumo", "-c", "train_sim.sumocfg", "--start", "--quit-on-end", "--no-step-log", "true", "--waiting-time-memory", "1000"]
         self.tls_id = "J7"  
         
         # *** CRITICAL: PUT YOUR INCOMING LANE IDs HERE ***
